@@ -1,15 +1,17 @@
 package org.fx.application
 
 
-import ujson._
+import org.fx.application.domain.Bank.{Account, Trader}
+import org.fx.application.domain.Event.Requests
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
-import io.getquill._
-import Bank.{Account, Trader}
-
-import cask.Request
-import org.fx.application.Event.Requests
+import org.fx.application.domain.Bank
 
 trait Cxn {
+
+  def getDetailsFromDB: List[(String, Long)]
+  def getTrader(whatToCheck: String): Option[Trader]
+  def getRequest: List[Requests]
+  def getAccount(id: Int): List[Account]
 
 }
 
@@ -18,27 +20,24 @@ object DatabaseCxn extends Cxn {
   import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
   import io.getquill._
 
-//  val queries: List[String] = List(
-//
-//  )
-
   object dbConn {
 
     val server: EmbeddedPostgres = EmbeddedPostgres.builder()
       .setDataDirectory(System.getProperty("user.home") + "/data")
-      .setCleanDataDirectory(false).setPort(5434)
+      .setCleanDataDirectory(false)
+      .setPort(5438)
       .start()
 
     val pgDataSource = new org.postgresql.ds.PGSimpleDataSource()
     pgDataSource.setUser("postgres")
     pgDataSource.setPassword("drowssap2603")
-    pgDataSource.setPortNumber(5434)
+    pgDataSource.setPortNumber(5438)
 
     val hikariConfig = new HikariConfig()
     hikariConfig.setDataSource(pgDataSource)
 
     val ctx = new PostgresJdbcContext(LowerCase, new HikariDataSource(hikariConfig))
-      println("established connection")
+    println("established connection")
 
   }
 
@@ -47,7 +46,7 @@ object DatabaseCxn extends Cxn {
 
   // put a list of case classes here since queries cannot have generic types
 
-  def getDetailsFromDB() = {
+  def getDetailsFromDB(): List[(String, Long)] = {
 
     // what Data Table should be gotten
 
@@ -63,18 +62,36 @@ object DatabaseCxn extends Cxn {
 
   }
 
-  def dbCheckAndGet(whatToCheck: String) = {
+  def getTrader(whatToCheck: String): Option[Trader]  = {
 
     val q = quote {
 
       query[Trader]
         .filter(_.name == lift(whatToCheck))
-        .map(m => Trader(m.id, m.name, m.bankaccount_id, m.fxTender ))
+        .map(m => Trader(m.id, m.name, m.bankaccount_id, m.fxTender))
+
+    }
+
+    ctx.run(q).headOption
+
+  }
+
+  def getRequest: List[Requests] = {
+
+    val q = quote {
+      query[Requests].sortBy(_.inserted_at)(Ord.desc)
 
     }
 
     ctx.run(q)
+  }
 
+  def getAccount(id: Int): List[Account] = {
+    val q = quote {
+      query[Account].filter(p => p.id == lift(id))
+    }
+
+    ctx.run(q)
   }
 
   object UpdateDb {
@@ -87,7 +104,7 @@ object DatabaseCxn extends Cxn {
      */
 
     //i.
-    def singleInsert(r: Requests, b: Option[Bank] = None) = {
+    def singleInsert(r: Requests, b: Option[Bank] = None): Long = {
 
         val q = quote {
 
@@ -98,8 +115,6 @@ object DatabaseCxn extends Cxn {
         ctx.run(q)
 
     }
-
-
 
   }
 
