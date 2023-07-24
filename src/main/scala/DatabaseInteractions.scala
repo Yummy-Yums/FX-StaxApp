@@ -29,9 +29,7 @@ object DatabaseCxn extends Cxn {
       .start()
 
     val pgDataSource = new org.postgresql.ds.PGSimpleDataSource()
-    pgDataSource.setUser("postgres")
-    pgDataSource.setPassword("drowssap2603")
-    pgDataSource.setPortNumber(5438)
+
 
     val hikariConfig = new HikariConfig()
     hikariConfig.setDataSource(pgDataSource)
